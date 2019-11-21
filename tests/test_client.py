@@ -1,5 +1,4 @@
 import pytest
-import datetime
 
 from intellipush import (
     client
