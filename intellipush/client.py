@@ -1,8 +1,9 @@
 import json
-
 import requests
 import time
 import datetime
+
+from .messages import SMS
 
 class Intellipush:
     def __init__(self, key, secret, base_url='https://www.intellipush.com/api', version='4.0'):
@@ -13,11 +14,55 @@ class Intellipush:
         self.sdk_tag = 'python'
         self.last_error = None
         self.last_error_code = None
+        self.last_error_message = None
+
+    @staticmethod
+    def _sms_as_post_object(sms, receiver=None):
+        data = vars(sms)
+
+        if data['when'] and isinstance(data['when'], datetime.datetime):
+            data['date'] = data['when'].strftime('%Y-%m-%d')
+            data['time'] = data['when'].strftime('%H:%M:%S')
+        else:
+            data['date'] = 'now'
+            data['time'] = 'now'
+
+        if len(data['receivers']) > 1 and not receiver:
+            raise IntellipushException('Attempted to send message with multiple receivers without proper batching')
+
+        if not receiver:
+            receiver = data['receivers'][0]
+
+        data['single_target_countrycode'] = receiver[0]
+        data['single_target'] = receiver[1]
+
+        del data['receivers']
+        return data
+
+    def sms(self, countrycode, phonenumber, message):
+        sms = SMS(
+            receivers=[(countrycode, phonenumber), ],
+            message=message,
+        )
+
+        return self.send_sms(sms)
 
     def send_sms(self, sms):
-        pass
+        if len(sms.receivers) > 1:
+            return self.send_smses((sms, ))
+
+        return self._post(
+            'notification/createNotification',
+            data=self._sms_as_post_object(sms=sms),
+        )
 
     def send_smses(self, smses):
+        batch = []
+
+        for sms in smses:
+            for receiver in sms.receivers:
+                batch.append(self._sms_as_post_object(sms=sms, receiver=receiver))
+
         pass
 
     def delete_sms(self, sms_id):
@@ -70,7 +115,7 @@ class Intellipush:
                 'contact_id': contact_id,
             })
         elif countrycode and phonenumber:
-            fetched = self._post('contact/getByPhoneNumber', data={
+            fetched = self._post('contact/getContactByPhoneNumber', data={
                 'countrycode': countrycode,
                 'phonenumber': phonenumber,
             })

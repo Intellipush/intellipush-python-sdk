@@ -7,7 +7,7 @@ from intellipush import (
 test_contact = {
     'name': 'Test Testerson',
     'countrycode': '0047',
-    'phonenumber': '69336286',
+    'phonenumber': '91753699',
     'email': 'test@example.com',
     'company': 'Test Inc.',
     'sex': 'male',
@@ -31,6 +31,7 @@ def created_contact(intellipush):
     )
 
 
+@pytest.mark.live_test
 def test_create_contact(intellipush):
     result = intellipush.create_contact(
         **test_contact
@@ -48,12 +49,13 @@ def test_create_contact(intellipush):
         assert fetched[field] == value
 
 
-@pytest.mark.skip('Currently generates a 500 error?')
+@pytest.mark.live_test
 def test_contact_by_phone_number(intellipush, created_contact):
     fetched = intellipush.contact(countrycode=created_contact['countrycode'], phonenumber=created_contact['phonenumber'])
-    assert fetched['contact_id'] == created_contact['id']
+    assert fetched['id'] == created_contact['id']
 
 
+@pytest.mark.live_test
 def test_delete_contact(intellipush, created_contact):
     fetched = intellipush.contact(created_contact['id'])
     assert fetched
@@ -66,6 +68,46 @@ def test_delete_contact(intellipush, created_contact):
     assert intellipush.last_error_code == 508
 
 
+@pytest.mark.live_test
 def test_current_user(intellipush):
     user = intellipush.current_user()
     assert user
+
+
+@pytest.mark.live_test
+def test_sms_simple_live(intellipush, request):
+    if not request.config.option.live_country_code or \
+            not request.config.option.live_phone_number:
+        pytest.skip('No --live-country-code or --live-phone-number given for executing tests that send messages')
+
+    message = 'Hello from intellipush test suite'
+
+    result = intellipush.sms(
+        countrycode=request.config.option.live_country_code,
+        phonenumber=request.config.option.live_phone_number,
+        message=message,
+    )
+
+    assert result['id']
+    assert result['text_message'] == message
+    assert result['method'] == 'sms'
+
+
+@pytest.mark.live_test
+def test_sms_simple(intellipush, mocker):
+    mocked_post = mocker.patch.object(intellipush, '_post')
+
+    intellipush.sms(
+        countrycode=test_contact['countrycode'],
+        phonenumber=test_contact['phonenumber'],
+        message='Hello from intellipush test suite',
+    )
+
+    assert mocked_post.called
+
+    args, kwargs = mocked_post.call_args
+    assert kwargs['data']['text_message'] == 'Hello from intellipush test suite'
+    assert kwargs['data']['single_target_countrycode'] == test_contact['countrycode']
+    assert kwargs['data']['single_target'] == test_contact['phonenumber']
+
+

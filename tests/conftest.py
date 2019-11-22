@@ -1,8 +1,11 @@
 import pytest
 
+
 def pytest_addoption(parser):
-    parser.addoption("--api-id", action="store")
-    parser.addoption("--api-secret", action="store")
+    parser.addoption('--api-id', action='store')
+    parser.addoption('--api-secret', action='store')
+    parser.addoption('--live-country-code', action='store')
+    parser.addoption('--live-phone-number', action='store')
 
 
 @pytest.fixture(scope='session')
