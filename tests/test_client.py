@@ -110,4 +110,3 @@ def test_sms_simple(intellipush, mocker):
     assert kwargs['data']['single_target_countrycode'] == test_contact['countrycode']
     assert kwargs['data']['single_target'] == test_contact['phonenumber']
 
-
