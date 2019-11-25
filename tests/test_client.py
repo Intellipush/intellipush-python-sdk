@@ -157,3 +157,25 @@ def test_sms_send_at(intellipush, mocker):
     assert kwargs['data']['single_target'] == test_contact['phonenumber']
     assert kwargs['data']['time'] == when.strftime('%H:%M:%S')
     assert kwargs['data']['date'] == when.strftime('%Y-%m-%d')
+
+
+@pytest.mark.live_test
+def test_sms_batch_live(intellipush, request):
+    messages = {
+        'Hello from intellipush test suite 1': True,
+        'Hello from intellipush test suite 2': True,
+    }
+
+    smses = []
+
+    for message in messages:
+        smses.append(SMS(
+            receivers=[(request.config.option.live_country_code, request.config.option.live_phone_number)],
+            message=message,
+        ))
+
+    result = intellipush.send_smses(smses)
+
+    assert result['id']
+    assert result['text_message'] == message
+    assert result['method'] == 'sms'
