@@ -1,7 +1,13 @@
+import datetime
+
 import pytest
 
 from intellipush import (
     client
+)
+
+from intellipush.messages import (
+    SMS,
 )
 
 test_contact = {
@@ -93,7 +99,6 @@ def test_sms_simple_live(intellipush, request):
     assert result['method'] == 'sms'
 
 
-@pytest.mark.live_test
 def test_sms_simple(intellipush, mocker):
     mocked_post = mocker.patch.object(intellipush, '_post')
 
@@ -110,3 +115,45 @@ def test_sms_simple(intellipush, mocker):
     assert kwargs['data']['single_target_countrycode'] == test_contact['countrycode']
     assert kwargs['data']['single_target'] == test_contact['phonenumber']
 
+
+@pytest.mark.live_test
+def test_sms_send_at_live(intellipush, request):
+    # all datetimes are assumed to be in local time in APIv4
+    when = datetime.datetime.now() + datetime.timedelta(minutes=2)
+    message = 'Hello from intellipush test suite'
+
+    sms = SMS(
+        receivers=[(request.config.option.live_country_code, request.config.option.live_phone_number)],
+        message=message,
+        when=when,
+    )
+
+    result = intellipush.send_sms(sms)
+    assert result['id']
+    assert result['text_message'] == message
+    assert result['method'] == 'sms'
+    assert result['timetosend'] == when.strftime('%Y-%m-%d %H:%M')
+
+
+def test_sms_send_at(intellipush, mocker):
+    mocked_post = mocker.patch.object(intellipush, '_post')
+
+    # all datetimes are assumed to be in local time in APIv4
+    when = datetime.datetime.now() + datetime.timedelta(minutes=5)
+
+    sms = SMS(
+        receivers=[(test_contact['countrycode'], test_contact['phonenumber'])],
+        message='Hello from intellipush test suite',
+        when=when,
+    )
+
+    intellipush.send_sms(sms)
+
+    assert mocked_post.called
+
+    args, kwargs = mocked_post.call_args
+    assert kwargs['data']['text_message'] == 'Hello from intellipush test suite'
+    assert kwargs['data']['single_target_countrycode'] == test_contact['countrycode']
+    assert kwargs['data']['single_target'] == test_contact['phonenumber']
+    assert kwargs['data']['time'] == when.strftime('%H:%M:%S')
+    assert kwargs['data']['date'] == when.strftime('%Y-%m-%d')
