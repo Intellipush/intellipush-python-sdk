@@ -1,9 +1,11 @@
-import json
+import json as jsonlib
 import requests
 import time
 import datetime
 
+from .utils import php_encode
 from .messages import SMS
+
 
 class Intellipush:
     def __init__(self, key, secret, base_url='https://www.intellipush.com/api', version='4.0'):
@@ -63,7 +65,11 @@ class Intellipush:
             for receiver in sms.receivers:
                 batch.append(self._sms_as_post_object(sms=sms, receiver=receiver))
 
-        pass
+        return self._post(
+            'notification/createBatch',
+            data={'batch': batch},
+            expect_list_return=True,
+        )
 
     def delete_sms(self, sms_id):
         pass
@@ -196,7 +202,7 @@ class Intellipush:
     def _url(self, endpoint):
         return self.base_url + '/' + endpoint
 
-    def _post(self, endpoint, data=None):
+    def _post(self, endpoint, data=None, expect_list_return=False):
         self.last_error = None
         self.last_error_code = None
 
@@ -204,13 +210,14 @@ class Intellipush:
             data = {}
 
         data.update(self._default_parameters())
+        encoded_data = php_encode(data)
 
         response = requests.post(
             url=self._url(endpoint),
-            data=data,
+            data=encoded_data,
         )
 
-        if response.status_code >= 500:
+        if response.status_code >= 300:
             raise ServerSideException(
                 'Server generated an error code: ' +
                 str(response.status_code) +
@@ -218,18 +225,29 @@ class Intellipush:
             )
 
         try:
-            data = response.json()
-        except json.JSONDecodeError as e:
+            response_data = response.json()
+        except jsonlib.JSONDecodeError as e:
             raise ServerSideException('Invalid JSON: ' + response.text)
 
-        if not data['success']:
-            if 'errorcode' in data:
-                self.last_error_code = data['errorcode']
-                self.last_error_message = data['status_message']
+        # The `batch` command returns a list, one for each mesasge. We keep the first error we find, but return the
+        # whole list so the client can do what it wants.
+        if expect_list_return:
+            for status_message in response_data:
+                if 'errorcode' in status_message:
+                    self.last_error_code = response_data['errorcode']
+                    self.last_error_message = response_data['status_message']
+                    break
+
+            return response_data
+
+        if not response_data['success']:
+            if 'errorcode' in response_data:
+                self.last_error_code = response_data['errorcode']
+                self.last_error_message = response_data['status_message']
 
             return None
 
-        return data['data']
+        return response_data['data']
 
 
 class IntellipushException(Exception):

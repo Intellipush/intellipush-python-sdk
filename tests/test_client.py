@@ -176,6 +176,10 @@ def test_sms_batch_live(intellipush, request):
 
     result = intellipush.send_smses(smses)
 
-    assert result['id']
-    assert result['text_message'] == message
-    assert result['method'] == 'sms'
+    assert len(result) == len(messages)
+
+    for message in result:
+        assert message['success']
+        del messages[message['data']['text_message']]
+
+    assert len(messages) == 0
