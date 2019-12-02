@@ -72,19 +72,43 @@ class Intellipush:
         )
 
     def delete_sms(self, sms_id):
-        pass
+        return self._post(
+            'notification/deleteNotification',
+            data={'notification_id': sms_id}
+        )
 
     def update_sms(self, sms_id, sms):
-        pass
+        sms_object = self._sms_as_post_object(sms)
+        sms_object['notification_id'] = sms_id
+
+        return self._post(
+            'notification/updateNotification',
+            data=sms_object
+        )
+
+    def fetch_sms(self, sms_id):
+        return self._post(
+            'notification/getNotification',
+            data={'notification_id': sms_id}
+        )
 
     def scheduled_smses(self, items=50, page=1):
-        pass
+        return self._post(
+            'notification/getUnsendtNotifications',
+            data={'page': page, 'items': items}
+        )
 
     def sent_smses(self, items=50, page=1):
-        pass
+        return self._post(
+            'notification/getSendtNotifications',
+            data={'page': page, 'items': items}
+        )
 
     def received_smses(self, items=50, page=1, keyword=None, second_keyword=None):
-        pass
+        return self._post(
+            'notification/getReceived',
+            data={'page': page, 'items': items, 'keyword': keyword, 'secondKeyword': second_keyword}
+        )
 
     def create_contact(self,
                        name,

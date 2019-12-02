@@ -84,7 +84,7 @@ def test_current_user(intellipush):
 def test_sms_simple_live(intellipush, request):
     if not request.config.option.live_country_code or \
             not request.config.option.live_phone_number:
-        pytest.skip('No --live-country-code or --live-phone-number given for executing tests that send messages')
+        pytest.skip('Requires --live-country-code and --live-phone-number')
 
     message = 'Hello from intellipush test suite'
 
@@ -118,6 +118,9 @@ def test_sms_simple(intellipush, mocker):
 
 @pytest.mark.live_test
 def test_sms_send_at_live(intellipush, request):
+    if not request.config.option.live_country_code or not request.config.option.live_phone_number:
+        pytest.skip('Requires --live-country-code and --live-phone-number')
+
     # all datetimes are assumed to be in local time in APIv4
     when = datetime.datetime.now() + datetime.timedelta(minutes=2)
     message = 'Hello from intellipush test suite'
@@ -161,6 +164,9 @@ def test_sms_send_at(intellipush, mocker):
 
 @pytest.mark.live_test
 def test_sms_batch_live(intellipush, request):
+    if not request.config.option.live_country_code or not request.config.option.live_phone_number:
+        pytest.skip('Requires --live-country-code and --live-phone-number')
+
     messages = {
         'Hello from intellipush test suite 1': True,
         'Hello from intellipush test suite 2': True,
@@ -183,3 +189,41 @@ def test_sms_batch_live(intellipush, request):
         del messages[message['data']['text_message']]
 
     assert len(messages) == 0
+
+
+@pytest.mark.live_test
+def test_fetch_and_delete_sms_live(intellipush, request):
+    if not request.config.option.live_country_code or not request.config.option.live_phone_number:
+        pytest.skip('Requires --live-country-code and --live-phone-number')
+
+    when = datetime.datetime.now() + datetime.timedelta(minutes=30)
+    message = 'This should not be sent'
+
+    sms = SMS(
+        receivers=[(request.config.option.live_country_code, request.config.option.live_phone_number)],
+        message=message,
+        when=when,
+    )
+
+    result = intellipush.send_sms(sms)
+    assert result['id']
+
+    fetched = intellipush.fetch_sms(sms_id=result['id'])
+    assert fetched['text_message'] == message
+
+    delete_result = intellipush.delete_sms(sms_id=result['id'])
+    fetched = intellipush.fetch_sms(sms_id=result['id'])
+    assert not fetched
+
+
+@pytest.mark.live_test
+def test_sent_smses(intellipush):
+    result = intellipush.sent_smses()
+
+    assert isinstance(result, list)
+
+    # this could be zero if tests run without any actual messages sent -- ever..
+    if len(result) > 0:
+        for message in result:
+            assert message['id']
+
