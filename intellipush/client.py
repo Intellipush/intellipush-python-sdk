@@ -181,25 +181,55 @@ class Intellipush:
         return self._post('contact/updateContact', contact)
 
     def create_contact_list(self, name):
-        pass
+        result = self._post('contactlist/createContactlist', {
+            'contactlist_name': name,
+        })
+
+        return self._adopt_contact_list(result)
 
     def contact_list(self, contact_list_id):
-        pass
+        """
+        Fetch a contact list given by its ìd.
+
+        :param contact_list_id: The id of the contact list to fetch.
+        :return:
+        """
+        return self._adopt_contact_list(self._post('contactlist/getContactlist', {
+            'contactlist_id': contact_list_id,
+        }))
 
     def add_to_contact_list(self, contact_list_id, contact_id):
-        pass
+        return self._post('contactlist/addContactToContactlist', {
+            'contactlist_id': contact_list_id,
+            'contact_id': contact_id,
+        })
 
     def remove_from_contact_list(self, contact_list_id, contact_id):
-        pass
+        return self._post('contactlist/removeContactFromContactlist', {
+            'contactlist_id': contact_list_id,
+            'contact_id': contact_id,
+        })
 
     def delete_contact_list(self, contact_list_id):
-        pass
+        return self._post('contactlist/deleteContactlist', {
+            'contactlist_id': contact_list_id,
+        })
 
     def update_contact_list(self, contact_list_id, name):
-        pass
+        return self._adopt_contact_list(self._post('contactlist/updateContactlist', {
+            'contactlist_id': contact_list_id,
+            'contactlist_name': name,
+        }))
 
     def contact_list_size(self, contact_list_id, contact_list_filter=None):
-        pass
+        result = self._post('contactlist/getNumberOfFilteredContactsInContactlist', {
+            'contactlist_id': contact_list_id,
+        })
+
+        if 'amount' in result:
+            return int(result['amount'])
+
+        return None
 
     def contacts_not_in_contact_list(self, contact_list_id, items=50, page=1):
         pass
@@ -287,6 +317,32 @@ class Intellipush:
             return None
 
         return response_data['data']
+
+    @staticmethod
+    def _adopt_contact_list(contact_list):
+        """
+        A contact list is returned from the API with the 'name' key as 'contactlist_name' OR as
+        `list_name`. This is different from the other elements, so we patch the object to be
+        similar to the other objects returned by the library.
+
+        :param contact_list:
+        :return:
+        """
+        if not contact_list:
+            return contact_list
+
+        # Copy the list so we don't make direct changes to the one sent in
+        contact_list = dict(contact_list)
+
+        if 'contactlist_name' in contact_list:
+            contact_list['name'] = contact_list['contactlist_name']
+            del contact_list['contactlist_name']
+
+        if 'list_name' in contact_list:
+            contact_list['name'] = contact_list['list_name']
+            del contact_list['list_name']
+
+        return contact_list
 
 
 class IntellipushException(Exception):
