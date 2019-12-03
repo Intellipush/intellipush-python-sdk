@@ -162,8 +162,23 @@ class Intellipush:
             'contact_id': contact_id,
         })
 
-    def update_contact(self, contact_id, name=None, number=None, email=None, company=None, sex=None, country=None, param1=None, param2=None, param3=None):
-        pass
+    def update_contact(self, contact_id, name=None, countrycode=None, phonenumber=None, email=None, company=None, sex=None, country=None, param1=None, param2=None, param3=None, **kwargs):
+        contact = {
+            'contact_id': contact_id,
+            'name': name,
+            'countrycode': countrycode,
+            'phonenumber': phonenumber,
+            'email': email,
+            'company': company,
+            'sex': sex,
+            'country': country,
+            'param1': param1,
+            'param2': param2,
+            'param3': param3,
+        }
+
+        contact.update(kwargs)
+        return self._post('contact/updateContact', contact)
 
     def create_contact_list(self, name):
         pass

@@ -23,6 +23,19 @@ test_contact = {
     'param3': 'this_is_param3',
 }
 
+updated_contact = {
+    'name': 'Feast Feasterson',
+    'countrycode': '0047',
+    'phonenumber': '91753699',
+    'email': 'feast@example.com',
+    'company': 'Feast Inc.',
+    'sex': 'female',
+    'country': 'Norway',
+    'param1': 'this_was_param1',
+    'param2': 'this_was_param2',
+    'param3': 'this_was_param3',
+}
+
 
 @pytest.fixture
 def intellipush(api_details):
@@ -72,6 +85,22 @@ def test_delete_contact(intellipush, created_contact):
 
     assert contact is None
     assert intellipush.last_error_code == 508
+
+
+@pytest.mark.live_test
+def test_update_contact(intellipush, created_contact):
+    update_command = {
+        'contact_id': created_contact['id'],
+    }
+    update_command.update(updated_contact)
+
+    updated = intellipush.update_contact(**update_command)
+    fetched = intellipush.contact(created_contact['id'])
+
+    assert fetched
+
+    for field, value in updated_contact.items():
+        assert fetched[field] == value
 
 
 @pytest.mark.live_test
@@ -226,4 +255,5 @@ def test_sent_smses(intellipush):
     if len(result) > 0:
         for message in result:
             assert message['id']
+
 
