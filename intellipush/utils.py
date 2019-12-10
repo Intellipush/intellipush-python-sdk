@@ -1,5 +1,6 @@
 import urllib.parse
 
+
 def php_encode(data):
     params = {}
 
@@ -19,5 +20,11 @@ def php_encode(data):
                         params['{0}[{1}][{2}]'.format(key, index, dk)] = dv
                 else:
                     params['{0}[{1}]'.format(key, index)] = v
+        elif isinstance(value, dict):
+            for dk, dv in value.items():
+                if dv is None:
+                    continue
+
+                params['{0}[{1}]'.format(key, dk)] = dv
 
     return urllib.parse.urlencode(params)
