@@ -5,6 +5,7 @@ import datetime
 
 from .utils import php_encode
 from .messages import SMS
+from .contacts import Target
 
 
 class Intellipush:
@@ -17,29 +18,6 @@ class Intellipush:
         self.last_error = None
         self.last_error_code = None
         self.last_error_message = None
-
-    @staticmethod
-    def _sms_as_post_object(sms, receiver=None):
-        data = vars(sms)
-
-        if data['when'] and isinstance(data['when'], datetime.datetime):
-            data['date'] = data['when'].strftime('%Y-%m-%d')
-            data['time'] = data['when'].strftime('%H:%M:%S')
-        else:
-            data['date'] = 'now'
-            data['time'] = 'now'
-
-        if len(data['receivers']) > 1 and not receiver:
-            raise IntellipushException('Attempted to send message with multiple receivers without proper batching')
-
-        if not receiver:
-            receiver = data['receivers'][0]
-
-        data['single_target_countrycode'] = receiver[0]
-        data['single_target'] = receiver[1]
-
-        del data['receivers']
-        return data
 
     def sms(self, countrycode, phonenumber, message):
         sms = SMS(
@@ -243,17 +221,72 @@ class Intellipush:
         return self._post('user')
 
     def shorturl(self, shorturl_id=None, shorturl=None):
+        """
+        Retrieve a shorturl definition from its id or its shorturl. One of the parameters has
+        to be provided.
+
+        :param shorturl_id: The id of the shorturl definition to be retrieved
+        :param shorturl: The shorturl to retrieve details for (with or without `http://host/`)
+        :return: The fetched shorturl or None on failure
+        """
         if not shorturl_id and not shorturl:
             raise NoValidIDException('Either shorturl_id or shorturl has to be provided')
 
-    def create_shorturl(self, url):
-        pass
+        if shorturl_id:
+            return self._post('url/getUrlDetailsById', {
+                'url_id': shorturl_id,
+            })
 
-    def create_child_shorturl(self, parent_shorturl_id, target=None):
-        pass
+        return self._post('url/getDetailsByShortUrl', {
+            'short_url': shorturl,
+        })
+
+    def create_shorturl(self, url, parent_url_id=None, target=None):
+        """
+        Create a shorturl (or a child shorturl if `parent_url_id is provided).
+
+        A `target` parameter can be provided that links the shorturl to a specific user. The
+        parameter should be an `contacts.Target` object.
+
+        :param url: The URL to link the shorturl to.
+        :param parent_url_id: The ID of the parent shorturl if this is a version of the previous URL with a different target
+        :param target: A `contacts.Target` object that contains information to associate with the shorturl. If a target is given, `parent_url_id` must be set as well.
+        :return: Details about the created shorturl
+        """
+        if target:
+            if not isinstance(target, Target):
+                raise TypeError('A `contacts.Target` object is required for the `target` parameter')
+
+            target = self._target_as_post_object(target=target)
+
+        if parent_url_id:
+            return self._post('url/generateChildUrl', {
+                'long_url': url,
+                'target': target,
+                'parent_url_id': parent_url_id,
+            })
+
+        if target:
+            raise InvalidTargetException('A `target` is only valid for child shorturls (when `parent_url_id` is given).')
+
+        return self._post('url/generateShortUrl', {
+            'long_url': url,
+        })
 
     def shorturls(self, items=50, page=1, include_children=False, parent_shorturl_id=None, target=None):
-        pass
+        if target:
+            if not isinstance(target, Target):
+                raise TypeError('A `contacts.Target` object is required for the `target` parameter')
+
+            target = self._target_as_post_object(target=target)
+
+        return self._post('url/getAll', {
+            'items': items,
+            'page': page,
+            'include_children': include_children,
+            'parent_shorturl_id': parent_shorturl_id,
+            'target': target,
+        })
 
     def statistics(self):
         """
@@ -317,6 +350,11 @@ class Intellipush:
         return False
 
     def _default_parameters(self):
+        """
+        Get a dictionary containing the default parameters that should be included in every request.
+
+        :return: A dict with basic request information
+        """
         return {
             'api_secret': self.secret,
             'appID': self.key,
@@ -326,6 +364,12 @@ class Intellipush:
         }
 
     def _url(self, endpoint):
+        """
+        Merge base service URL with the endpoint we're requesting data from.
+
+        :param endpoint: Endpoint for the API request (usually `<module>/<command>`)
+        :return: The complete URL to use for the request
+        """
         return self.base_url + '/' + endpoint
 
     def _post(self, endpoint, data=None, expect_list_return=False):
@@ -417,6 +461,43 @@ class Intellipush:
 
         return contact_list
 
+    @staticmethod
+    def _sms_as_post_object(sms, receiver=None):
+        """
+        Convert an SMS object and its values to a format suitable for posting to the service.
+
+        :param sms: an `contacts.SMS` object
+        :param receiver: If given, the `receiver` should be a two element tuple with country code and phone number
+                         that overrides the one given in the SMS. This is useful when doing batch requests, as it
+                         allows us to avoid changing the original SMS object - just the data we're posting to
+                         the server. The tuple would be formatted as `('0047', '900xxxxx').
+        :return:
+        """
+        data = vars(sms)
+
+        if data['when'] and isinstance(data['when'], datetime.datetime):
+            data['date'] = data['when'].strftime('%Y-%m-%d')
+            data['time'] = data['when'].strftime('%H:%M:%S')
+        else:
+            data['date'] = 'now'
+            data['time'] = 'now'
+
+        if len(data['receivers']) > 1 and not receiver:
+            raise IntellipushException('Attempted to send message with multiple receivers without proper batching')
+
+        if not receiver:
+            receiver = data['receivers'][0]
+
+        data['single_target_countrycode'] = receiver[0]
+        data['single_target'] = receiver[1]
+
+        del data['receivers']
+        return data
+
+    @staticmethod
+    def _target_as_post_object(target):
+        return vars(target)
+
 
 class IntellipushException(Exception):
     pass
@@ -430,5 +511,11 @@ class ServerSideException(IntellipushException):
     pass
 
 
+class InvalidTargetException(IntellipushException):
+    pass
+
+
 class TwoFactorAuthenticationIsAlreadyActive(IntellipushException):
     pass
+
+

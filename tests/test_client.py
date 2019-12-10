@@ -6,6 +6,10 @@ import pytest
 from intellipush import (
     client
 )
+from intellipush.client import InvalidTargetException
+from intellipush.contacts import (
+    Target,
+)
 
 from intellipush.messages import (
     SMS,
@@ -37,6 +41,10 @@ updated_contact = {
     'param3': 'this_was_param3',
 }
 
+test_shorturl = {
+    'url': 'https://example.com/foo',
+}
+
 
 @pytest.fixture
 def intellipush(api_details):
@@ -62,6 +70,11 @@ def created_contact_2(intellipush):
 def created_contact_list(intellipush):
     name = ''.join(random.choices(string.ascii_letters, k=10))
     return intellipush.create_contact_list(name=name)
+
+
+@pytest.fixture
+def created_shorturl(intellipush):
+    return intellipush.create_shorturl(url=test_shorturl['url'])
 
 
 @pytest.mark.live_test
@@ -425,3 +438,55 @@ def test_sent_smses(intellipush):
             assert message['id']
 
 
+@pytest.mark.live_test
+def test_create_shorturl(intellipush):
+    url = 'https://example.com/foo'
+    result = intellipush.create_shorturl(url=url)
+
+    assert result['id']
+    assert result['long_url'] == url
+    assert result['short_url']
+
+
+@pytest.mark.live_test
+def test_create_shorturl_with_target(intellipush):
+    email = ''.join(random.choices(string.ascii_letters, k=10)) + '@example.com'
+    target = Target(email=email, countrycode=test_contact['countrycode'], phonenumber=test_contact['phonenumber'])
+    url = 'https://example.com/foo'
+
+    result = intellipush.create_shorturl(url=url)
+    assert result['id']
+
+    child_url = intellipush.create_shorturl(url=url, parent_url_id=result['id'], target=target)
+    assert child_url['id']
+
+    shorturls = intellipush.shorturls(target=target)
+    assert False
+
+
+def test_create_shorturl_with_invalid_target(intellipush):
+    with pytest.raises(TypeError):
+        intellipush.create_shorturl(url=None, target='foo')
+
+
+def test_create_shorturl_fails_with_target_but_not_parent_id(intellipush):
+    with pytest.raises(InvalidTargetException):
+        intellipush.create_shorturl(url=None, target=Target(email='foo@example.com'))
+
+
+@pytest.mark.live_test
+def test_get_shorturl_from_id(intellipush, created_shorturl):
+    shorturl = intellipush.shorturl(shorturl_id=created_shorturl['id'])
+
+    assert shorturl['long_url'] == test_shorturl['url']
+    assert shorturl['id'] == created_shorturl['id']
+    assert shorturl['short_url'] == created_shorturl['short_url']
+
+
+@pytest.mark.live_test
+def test_get_shorturl_from_shorturl(intellipush, created_shorturl):
+    shorturl = intellipush.shorturl(shorturl=created_shorturl['short_url'])
+
+    assert shorturl['long_url'] == test_shorturl['url']
+    assert shorturl['id'] == created_shorturl['id']
+    assert shorturl['short_url'] == created_shorturl['short_url']
