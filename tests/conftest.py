@@ -6,6 +6,7 @@ def pytest_addoption(parser):
     parser.addoption('--api-secret', action='store')
     parser.addoption('--live-country-code', action='store')
     parser.addoption('--live-phone-number', action='store')
+    parser.addoption('--live-twofactor-code', action='store')
 
 
 @pytest.fixture(scope='session')

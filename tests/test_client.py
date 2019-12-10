@@ -346,6 +346,74 @@ def test_fetch_and_delete_sms_live(intellipush, request):
 
 
 @pytest.mark.live_test
+def test_send_twofactor_live(intellipush, request):
+    if not request.config.option.live_country_code or not request.config.option.live_phone_number:
+        pytest.skip('Requires --live-country-code and --live-phone-number')
+
+    result = intellipush.two_factor_send(
+        countrycode=request.config.option.live_country_code,
+        phonenumber=request.config.option.live_phone_number,
+        message_before_code='First part of message ',
+        message_after_code=' Second part of message',
+    )
+
+    if result.get('hasCode', False):
+        pytest.skip('Live number already has active code')
+
+    assert result
+    assert result['id']
+
+
+@pytest.mark.live_test
+def test_validate_twofactor_code_live(intellipush, request):
+    """
+    Test if the sent two factor code works. This test is kind of brittle, as it relies on you
+    supplying the code sent to you by SMS from the previous test through the command line when
+    invoking the test (`--live-twofactor-code`). Since a 2FA is only valid for a single attempt,
+    re-running the test will fail it - and it requires the correct code to be entered - otherwise
+    it fails as well.
+
+    This is usually not an actual code problem, but more an issue about how the tests are run.
+    The test is helpful when developing the features and invoking it explicitly under controlled
+    circumstances, and as a reference for how the 2FA authentication is implemented.
+
+    :param intellipush:
+    :param request:
+    :return:
+    """
+    if not request.config.option.live_twofactor_code or \
+        not request.config.option.live_country_code or \
+            not request.config.option.live_phone_number:
+        pytest.skip('Requires --live-twofactor-code, --live-country-code and --live-phone-number')
+
+    wrong_code_result = intellipush.two_factor_validate(
+        countrycode=request.config.option.live_country_code,
+        phonenumber=request.config.option.live_phone_number,
+        code=request.config.option.live_twofactor_code + "__1231__123",
+    )
+
+    assert not wrong_code_result
+
+    success_result = intellipush.two_factor_validate(
+        countrycode=request.config.option.live_country_code,
+        phonenumber=request.config.option.live_phone_number,
+        code=request.config.option.live_twofactor_code,
+    )
+
+    assert success_result
+
+
+@pytest.mark.live_test
+def test_statistics(intellipush):
+    stats = intellipush.statistics()
+
+    assert 'numberOf' in stats
+    assert 'unsentNotifications' in stats['numberOf']
+    assert 'contacts' in stats['numberOf']
+    assert 'contactlists' in stats['numberOf']
+
+
+@pytest.mark.live_test
 def test_sent_smses(intellipush):
     result = intellipush.sent_smses()
 

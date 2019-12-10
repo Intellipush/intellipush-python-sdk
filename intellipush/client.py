@@ -189,7 +189,7 @@ class Intellipush:
 
     def contact_list(self, contact_list_id):
         """
-        Fetch a contact list given by its ìd.
+        Fetch a contact list given by its id.
 
         :param contact_list_id: The id of the contact list to fetch.
         :return:
@@ -235,6 +235,11 @@ class Intellipush:
         pass
 
     def current_user(self):
+        """
+        Retrieve information about the currently logged in user.
+
+        :return:
+        """
         return self._post('user')
 
     def shorturl(self, shorturl_id=None, shorturl=None):
@@ -251,13 +256,65 @@ class Intellipush:
         pass
 
     def statistics(self):
-        pass
+        """
+        Retrieve statistics about pending messages (`unsentNotifications`), number of contacts
+        (`contacts`) and the number of contact lists (`contactlists`) active on your account.
 
-    def two_factor_generate(self):
-        pass
+        These are returned under the `numberOf` key on the root dictionary.
 
-    def two_factor_validate(self):
-        pass
+        :return: dict
+        """
+        stats = self._post('statistics')
+        self._fix_statistics_keys(stats)
+        return stats
+
+    def two_factor_send(self, countrycode, phonenumber, message_before_code=None, message_after_code=None):
+        """
+        Send a two factor authentication code to a given countrycode and phone number. The code
+        is validated by calling `two_factor_validate`.
+
+        :param countrycode: Country code of the recipient's phone number
+        :param phonenumber: Phone number to send 2FA code to
+        :param message_before_code: String to prefix the 2FA code with. The generated message is "<prefixmessage><code><postfix>".
+        :param message_after_code: Message to append after the 2FA code. No spaces are added automagically. The generated message is "<prefixmessage><code><postfix>".
+        :return: Response from service
+        :raises: TwoFactorAuthenticationIsAlreadyActive
+        """
+        result = self._post('twofactor/send2FaCode', {
+            'countrycode': countrycode,
+            'phonenumber': phonenumber,
+            'message_p1': message_before_code,
+            'message_p2': message_after_code,
+        })
+
+        if result.get('hasCode', False):
+            raise TwoFactorAuthenticationIsAlreadyActive('The phone number has an active two factor authentication request.')
+
+        return result
+
+    def two_factor_validate(self, countrycode, phonenumber, code):
+        """
+        Validate a previously sent two factor code. Method returns True if the code is valid for the
+        given phone number and country code, and False if not.
+
+        :param countrycode: Country code of the phone number of the user
+        :param phonenumber: Phone number of the user
+        :param code: The 2FA code the user has entered
+        :return: True or False depending on the validity of the code for the given country code and phone number.
+        """
+        result = self._post('twofactor/check2FaCode', {
+            'countrycode': countrycode,
+            'phonenumber': phonenumber,
+            'code': code,
+        })
+
+        if not result:
+            return False
+
+        if 'access' in result and result['access'] is True:
+            return True
+
+        return False
 
     def _default_parameters(self):
         return {
@@ -319,6 +376,22 @@ class Intellipush:
         return response_data['data']
 
     @staticmethod
+    def _fix_statistics_keys(statistics):
+        """
+        Helper function to clean up the response from the statistics endpoint by removing
+        misspelled statistics keys.
+
+        :param statistics: Dictionary containing statistics, modified by reference
+        :return:
+        """
+        if 'numberOf' in statistics:
+            number_of = statistics['numberOf']
+
+            if 'unsendtNotifications' in number_of:
+                number_of['unsentNotifications'] = number_of['unsendtNotifications']
+                del number_of['unsendtNotifications']
+
+    @staticmethod
     def _adopt_contact_list(contact_list):
         """
         A contact list is returned from the API with the 'name' key as 'contactlist_name' OR as
@@ -354,4 +427,8 @@ class NoValidIDException(IntellipushException):
 
 
 class ServerSideException(IntellipushException):
+    pass
+
+
+class TwoFactorAuthenticationIsAlreadyActive(IntellipushException):
     pass
