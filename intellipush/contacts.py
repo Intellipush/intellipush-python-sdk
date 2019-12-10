@@ -7,3 +7,11 @@ class ContactFilter:
         self.param1 = param1
         self.param2 = param2
         self.param3 = param3
+
+
+class Target:
+    def __init__(self, contact_id=None, email=None, countrycode=None, phonenumber=None):
+        self.contact_id = contact_id
+        self.email = email
+        self.countrycode = countrycode
+        self.phonenumber = phonenumber
