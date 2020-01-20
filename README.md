@@ -1,5 +1,22 @@
 # intellipush
 
+A client for communicating with the intellipush API service for sending SMSes.
+
+`pip install intellipush`
+
+Sending an SMS:
+
+    from intellipush import client
+    intellipush = client.Intellipush(key=api_id, secret=api_secret)
+    
+    result = intellipush.sms(
+        countrycode='0047',
+        phonenumber=phonenumber,
+        message='test from intellipush',
+    )    
+
+See the tests for current examples of how to perform most tasks available through the API. 
+
 Running the tests
 =================
 
@@ -28,3 +45,14 @@ Example:
 The methods do have mocked versions of their tests attached, but to make sure that
 the tests actually work against the server side, this allows you to run those tests
 as well if necessary.
+
+Releasing a new version of the library
+======================================
+
+Create the archives:
+
+    python setup.py sdist bdist_wheel
+    
+Upload the packages to pypi:
+
+    
