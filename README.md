@@ -49,10 +49,12 @@ as well if necessary.
 Releasing a new version of the library
 ======================================
 
-Create the archives:
+Update the version number in `setup.py` to reflect the changes in the library according to semantic versioning rules.
+
+Create the archives to be uploaded:
 
     python setup.py sdist bdist_wheel
     
-Upload the packages to pypi:
+Upload the packages to pypi (install twine if not already installed - `pip install twine`):
 
-    
+    twine upload dist/*
