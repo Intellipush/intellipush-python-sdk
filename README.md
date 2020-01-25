@@ -49,7 +49,7 @@ as well if necessary.
 Installing development dependencies
 ===================================
 
-When developing the library you can install all the developement tooling (such as `sphinx` and `twine`) by requesting
+When developing the library you can install all the development tooling (such as `sphinx` and `twine`) by requesting
 `setup.py` to install the `dev` version of the project:
 
     pip install -e ".[dev]"
