@@ -46,6 +46,14 @@ The methods do have mocked versions of their tests attached, but to make sure th
 the tests actually work against the server side, this allows you to run those tests
 as well if necessary.
 
+Installing development dependencies
+===================================
+
+When developing the library you can install all the developement tooling (such as `sphinx` and `twine`) by requesting
+`setup.py` to install the `dev` version of the project:
+
+    pip install -e ".[dev]"
+
 Releasing a new version of the library
 ======================================
 

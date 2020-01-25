@@ -24,4 +24,11 @@ setup(
     url='https://www.intellipush.com/',
     install_requires=install_requires,
     tests_require=tests_require,
+    extras_require={
+        'dev': [
+            'sphinx',
+            'sphinx-rtd-theme',
+            'twine',
+        ]
+    }
 )
