@@ -10,6 +10,16 @@ from .contacts import Target
 
 class Intellipush:
     def __init__(self, key, secret, base_url='https://www.intellipush.com/api', version='4.0'):
+        """
+        Creat a client instance for communicating with Intellipush.
+
+        `base_url` and `version` should be left to their default values unless you have a particular requirement.
+
+        :param key: Your API key
+        :param secret: Your API secret
+        :param base_url: The base URL of the Intellipush API
+        :param version: Version of the API that the client should communicate with
+        """
         self.key = key
         self.secret = secret
         self.base_url = base_url.rstrip('/')
@@ -20,6 +30,15 @@ class Intellipush:
         self.last_error_message = None
 
     def sms(self, countrycode, phonenumber, message):
+        """
+        Simple method to directly send an sms without any extra settings.
+
+        :param countrycode: Country code of the phone number (i.e. 0047)
+        :param phonenumber: Phone number the message should be delivered to
+        :param message: The message itself - a message will be split into several messages behind the scenes if its
+               lengthexceeds 160 characters.
+        :return: Response from the API with metadata about the queued/delivered message
+        """
         sms = SMS(
             receivers=[(countrycode, phonenumber), ],
             message=message,
@@ -28,6 +47,15 @@ class Intellipush:
         return self.send_sms(sms)
 
     def send_sms(self, sms):
+        """
+        Send an SMS object - created from the `SMS` data type (`intellipush.messages.SMS`).
+
+        The main difference from the `sms` method is that this allows for far greater granularity when configuring
+        the message to be sent, such as scheduling the message for later delivery and providing multiple recipients.
+
+        :param sms: SMS object (`intellipush.messages.SMS`)
+        :return: Response from the API with metadata about the queued/delivered message(s)
+        """
         if len(sms.receivers) > 1:
             return self.send_smses((sms, ))
 
@@ -37,6 +65,15 @@ class Intellipush:
         )
 
     def send_smses(self, smses):
+        """
+        Send a batch of messages by giving a list of `SMS` objects (`intellipush.messages.SMS`).
+
+        This will deliver a batch / list of messages to the API, reducing the overhead when sending a single message by
+        itself. Useful if you need to deliver a large amount of messages at the same time.
+
+        :param smses: iterable giving an `SMS` object for each iteration
+        :return: Response from the API with metadata about the queued/delivered message(s)
+        """
         batch = []
 
         for sms in smses:
@@ -50,12 +87,30 @@ class Intellipush:
         )
 
     def delete_sms(self, sms_id):
+        """
+        Delete an unsent SMS.
+
+        Removes a queued SMS from the API, causing it to not be sent. Useful together with the ability to
+        schedule sending time for an SMS when submitting it to Intellipush.
+
+        :param sms_id: `id` of the SMS to remove - returned by the API when sending an SMS or listing SMSes available.
+        :return: Response from the API for the operation
+        """
         return self._post(
             'notification/deleteNotification',
             data={'notification_id': sms_id}
         )
 
     def update_sms(self, sms_id, sms):
+        """
+        Update the information for a queued SMS.
+
+        Change the contents of an SMS that has been queued for scheduled sending.
+
+        :param sms_id: `id` of the SMS to update - returned by the API when sending an SMS or listing SMSes available.
+        :param sms: The updated SMS object
+        :return: Response from the API with metadata about the updated message
+        """
         sms_object = self._sms_as_post_object(sms)
         sms_object['notification_id'] = sms_id
 
@@ -65,24 +120,53 @@ class Intellipush:
         )
 
     def fetch_sms(self, sms_id):
+        """
+        Fetch information about an SMS sent or scheduled through Intellipush.
+
+        :param sms_id: `id` of the SMS to retrieve
+        :return: Metadata about the message
+        """
         return self._post(
             'notification/getNotification',
             data={'notification_id': sms_id}
         )
 
     def scheduled_smses(self, items=50, page=1):
+        """
+        Retrieve a list of still scheduled messages on Intellipush.
+
+        :param items: Number of items on each page
+        :param page: The current page (1-based)
+        :return: A list of scheduled messages available on Intellipush
+        """
         return self._post(
             'notification/getUnsendtNotifications',
             data={'page': page, 'items': items}
         )
 
     def sent_smses(self, items=50, page=1):
+        """
+        Retrieve a list of messages sent through Intellipush.
+
+        :param items: Number of items on each page
+        :param page: The current page (1-based)
+        :return: A list of messages that have been sent
+        """
         return self._post(
             'notification/getSendtNotifications',
             data={'page': page, 'items': items}
         )
 
     def received_smses(self, items=50, page=1, keyword=None, second_keyword=None):
+        """
+        Retrieve a list of messages _received_ by your keyword from your recipients.
+
+        :param items: Number of items on each page
+        :param page: The current page (1-based)
+        :param keyword: The primary keyword to retrieve received smses for
+        :param second_keyword: The secondary keyword to filter messages by
+        :return:
+        """
         return self._post(
             'notification/getReceived',
             data={'page': page, 'items': items, 'keyword': keyword, 'secondKeyword': second_keyword}
@@ -101,6 +185,23 @@ class Intellipush:
                        param3=None,
                        **kwargs,
     ):
+        """
+        Create a contact on Intellipush.
+
+        :param name: Name of the contact
+        :param countrycode: Country code of the contact (i.e. `0047``
+        :param phonenumber: Phone number of the contact
+        :param email: Email of the contact
+        :param company: Company name of the contact
+        :param sex: Sex of the contact
+        :param country: Associated country of the contact
+        :param param1: Free form value to associate with the contact
+        :param param2: Free form value to associate with the contact
+        :param param3: Free form value to associate with the contact
+        :param kwargs: Any additional parameters are supported by the client as necessary if the contact format is
+                       extended without the client being updated
+        :return: Metadata about the created contact from Intellipush
+        """
         contact = {
             'name': name,
             'countrycode': countrycode,
@@ -118,6 +219,15 @@ class Intellipush:
         return self._post('contact/createContact', contact)
 
     def contact(self, contact_id=None, countrycode=None, phonenumber=None):
+        """
+        Retrieve a contact from your Intellipush account. Either `contact_id` or both `countrycode` and `phonenumber`
+        has to be provided.
+
+        :param contact_id: `id` of the contact to retrieve
+        :param countrycode: Country code of the contact to retrieve (i.e. `0047`)
+        :param phonenumber: Phone number of the contact to retrieve
+        :return:
+        """
         if contact_id:
             fetched = self._post('contact/getContact', data={
                 'contact_id': contact_id,
@@ -136,6 +246,12 @@ class Intellipush:
         return fetched[0]
 
     def delete_contact(self, contact_id):
+        """
+        Delete a contact from its id.
+
+        :param contact_id: The id of the contact to remove.
+        :return: Reponse from the API
+        """
         return self._post('contact/deleteContact', {
             'contact_id': contact_id,
         })
@@ -159,6 +275,12 @@ class Intellipush:
         return self._post('contact/updateContact', contact)
 
     def create_contact_list(self, name):
+        """
+        Create a new contact list.
+
+        :param name: Name of the contact list
+        :return: Response from the API with information about the created contact list
+        """
         result = self._post('contactlist/createContactlist', {
             'contactlist_name': name,
         })
@@ -177,29 +299,63 @@ class Intellipush:
         }))
 
     def add_to_contact_list(self, contact_list_id, contact_id):
+        """
+        Add a contact to a contact list. You can use this to group your contacts into multiple segments.
+
+        :param contact_list_id: The `id` of the contact list to add the contact to
+        :param contact_id: The `id` of the contact to add
+        :return: Response from the API
+        """
         return self._post('contactlist/addContactToContactlist', {
             'contactlist_id': contact_list_id,
             'contact_id': contact_id,
         })
 
     def remove_from_contact_list(self, contact_list_id, contact_id):
+        """
+        Remove a contact from a contact list.
+
+        :param contact_list_id: The `id` of the contact list to remove the contact from
+        :param contact_id: The `id` of the contact to remove
+        :return: Response from the API
+        """
         return self._post('contactlist/removeContactFromContactlist', {
             'contactlist_id': contact_list_id,
             'contact_id': contact_id,
         })
 
     def delete_contact_list(self, contact_list_id):
+        """
+        Delete a contact list / segment.
+
+        :param contact_list_id: The `id` of the contact list to remove
+        :return: Response from the API
+        """
         return self._post('contactlist/deleteContactlist', {
             'contactlist_id': contact_list_id,
         })
 
     def update_contact_list(self, contact_list_id, name):
+        """
+        Update a contact list's information
+
+        :param contact_list_id: The `id` of the contact list to update
+        :param name: New name of the contact list
+        :return: Response from the API
+        """
         return self._adopt_contact_list(self._post('contactlist/updateContactlist', {
             'contactlist_id': contact_list_id,
             'contactlist_name': name,
         }))
 
     def contact_list_size(self, contact_list_id, contact_list_filter=None):
+        """
+        Get the number of entries in a given contact list.
+
+        :param contact_list_id: The `id` of the contact list to retrieve a count for
+        :param contact_list_filter: Filter the contact list by these values (a `intellipush.contacts.ContactFilter`)
+        :return:
+        """
         result = self._post('contactlist/getNumberOfFilteredContactsInContactlist', {
             'contactlist_id': contact_list_id,
         })
@@ -210,6 +366,14 @@ class Intellipush:
         return None
 
     def contacts_not_in_contact_list(self, contact_list_id, items=50, page=1):
+        """
+        Retrieve all your contacts that are _not_ in the specified contact list.
+
+        :param contact_list_id: `id` of the contact list to check the contacts against
+        :param items: Number of contacts on each page
+        :param page: The current page (1-based)
+        :return: A list of contacts that isn't in the given contact list
+        """
         pass
 
     def current_user(self):
@@ -274,6 +438,16 @@ class Intellipush:
         })
 
     def shorturls(self, items=50, page=1, include_children=False, parent_shorturl_id=None, target=None):
+        """
+        Retrieve all shorturls available for your Intellipush account.
+
+        :param items: The number of items to return for each request
+        :param page: The page number to return results for (1-based)
+        :param include_children: Also return shorturls that are children of other shorturls
+        :param parent_shorturl_id: Only return shorturls that have `parent_shorturl_id` as a parent
+        :param target: Only return shorturls that matches this target (`intellipush.contacts.Target`).
+        :return: A list of shorturls as returned from the API.
+        """
         if target:
             if not isinstance(target, Target):
                 raise TypeError('A `contacts.Target` object is required for the `target` parameter')
@@ -310,7 +484,7 @@ class Intellipush:
         :param phonenumber: Phone number to send 2FA code to
         :param message_before_code: String to prefix the 2FA code with. The generated message is "<prefixmessage><code><postfix>".
         :param message_after_code: Message to append after the 2FA code. No spaces are added automagically. The generated message is "<prefixmessage><code><postfix>".
-        :return: Response from service
+        :return: Response from Intellipush
         :raises: TwoFactorAuthenticationIsAlreadyActive
         """
         result = self._post('twofactor/send2FaCode', {
@@ -373,7 +547,20 @@ class Intellipush:
         return self.base_url + '/' + endpoint
 
     def _post(self, endpoint, data=None, expect_list_return=False):
-        self.last_error = None
+        """
+        Internal helper method to send requests to the intellipush service. Wraps error handling and raises exceptions
+        for general error conditions (such as HTTP status codes >= 300).
+
+        `last_error_code` and `last_error_message` will be set if an error occurs.
+
+        :param endpoint: The API endpoint to query (i.e. `contact/getContact`)
+        :param data: Information to send to the endpoint - depends on what the endpoint expects.
+        :param expect_list_return: Expect a list returned from the API endpoint - useful when the response consists of
+               multiple messages.
+        :return: The response from the API (returned under the `data` key). `last_error_code` and `last_error_message`
+                 will be set to describe any error that occured.
+        """
+        self.last_error_message = None
         self.last_error_code = None
 
         if not data:
@@ -399,7 +586,7 @@ class Intellipush:
         except jsonlib.JSONDecodeError as e:
             raise ServerSideException('Invalid JSON: ' + response.text)
 
-        # The `batch` command returns a list, one for each mesasge. We keep the first error we find, but return the
+        # The `batch` command returns a list, one for each message. We keep the first error we find, but return the
         # whole list so the client can do what it wants.
         if expect_list_return:
             for status_message in response_data:
@@ -464,7 +651,7 @@ class Intellipush:
     @staticmethod
     def _sms_as_post_object(sms, receiver=None):
         """
-        Convert an SMS object and its values to a format suitable for posting to the service.
+        Convert an SMS object and its values to a format suitable for posting to Intellipush.
 
         :param sms: an `contacts.SMS` object
         :param receiver: If given, the `receiver` should be a two element tuple with country code and phone number
